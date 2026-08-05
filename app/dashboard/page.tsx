@@ -25,6 +25,8 @@ export default function DashboardPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const pwRef = useRef("");
 
+  const [clearing, setClearing] = useState(false);
+
   const fetchEntries = useCallback(async (pw: string) => {
     try {
       const res = await fetch("/api/rsvp", { headers: { "x-dashboard-password": pw } });
@@ -43,6 +45,30 @@ export default function DashboardPage() {
       setFetchError(err instanceof Error ? err.message : "Couldn't load RSVPs.");
     }
   }, []);
+
+  const handleClearAll = useCallback(async () => {
+    if (!confirm("⚠️ This will permanently delete ALL RSVPs. Are you sure?")) return;
+    setClearing(true);
+    try {
+      const res = await fetch("/api/rsvp", {
+        method: "DELETE",
+        headers: { "x-dashboard-password": pwRef.current },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Failed to clear RSVPs.");
+        return;
+      }
+      setEntries([]);
+      setLastUpdated(new Date());
+    } catch {
+      alert("Network error — couldn't clear RSVPs.");
+    } finally {
+      setClearing(false);
+    }
+  }, []);
+
+
 
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY);
@@ -107,11 +133,20 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-[100dvh] px-6 py-12 max-w-3xl mx-auto">
-      <div className="flex items-baseline justify-between mb-8 flex-wrap gap-2">
-        <h1 className="font-display text-3xl">Guest list</h1>
-        <p className="text-xs font-mono text-[var(--ink-soft)]">
-          {lastUpdated ? `updated ${lastUpdated.toLocaleTimeString()}` : "loading…"}
-        </p>
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+        <div>
+          <h1 className="font-display text-3xl">Guest list</h1>
+          <p className="text-xs font-mono text-[var(--ink-soft)] mt-1">
+            {lastUpdated ? `updated ${lastUpdated.toLocaleTimeString()}` : "loading…"}
+          </p>
+        </div>
+        <button
+          onClick={handleClearAll}
+          disabled={clearing || entries === null || entries.length === 0}
+          className="btn btn-outline text-sm border-[var(--blush-deep)] text-[var(--blush-deep)] hover:bg-[var(--blush-soft)] disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {clearing ? "Clearing…" : "🗑 Clear all RSVPs"}
+        </button>
       </div>
 
       {/* Live totals */}

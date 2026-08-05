@@ -74,3 +74,15 @@ export async function listRsvps(): Promise<RsvpEntry[]> {
   }
   return Array.from(memStore.values()).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
+
+export async function clearAllRsvps(): Promise<void> {
+  if (redis) {
+    const ids = await redis.smembers(LIST_KEY);
+    if (ids.length) {
+      await Promise.all(ids.map((id) => redis.del(ENTRY_KEY(id))));
+    }
+    await redis.del(LIST_KEY);
+  } else {
+    memStore.clear();
+  }
+}

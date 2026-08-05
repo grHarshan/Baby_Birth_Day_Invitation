@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { addRsvp, listRsvps, RsvpEntry } from "@/lib/storage";
+import { addRsvp, listRsvps, clearAllRsvps, RsvpEntry } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -46,4 +46,17 @@ export async function GET(req: NextRequest) {
   const entries = await listRsvps();
   const safe = entries.map(({ token: _token, ...rest }) => rest);
   return NextResponse.json({ entries: safe });
+}
+
+// Guarded delete-all endpoint — clears every RSVP entry from storage.
+export async function DELETE(req: NextRequest) {
+  const password = req.headers.get("x-dashboard-password") ?? "";
+  const expected = process.env.DASHBOARD_PASSWORD ?? "";
+
+  if (!expected || password !== expected) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  await clearAllRsvps();
+  return NextResponse.json({ ok: true });
 }
