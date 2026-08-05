@@ -1,0 +1,194 @@
+@import "tailwindcss";
+
+:root {
+  --cream: #fbf6ec;
+  --paper: #fffdf9;
+  --ink: #392c34;
+  --ink-soft: #6b5c66;
+  --sage: #6f8f6c;
+  --sage-deep: #4f6b4d;
+  --sage-soft: #dbe6d5;
+  --blush: #f2c9c4;
+  --blush-deep: #e08f86;
+  --honey: #e2a13f;
+  --honey-soft: #f4dcae;
+  --sky: #c9dee3;
+  --line: rgba(57, 44, 52, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: "Fraunces", ui-serif, Georgia, serif;
+  font-optical-sizing: auto;
+}
+
+.font-mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+::selection {
+  background: var(--honey-soft);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--honey);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---- Signature element: the growth-chart rail ---- */
+.growth-rail {
+  position: fixed;
+  left: 14px;
+  top: 0;
+  height: 100dvh;
+  width: 34px;
+  z-index: 40;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .growth-rail {
+    left: 6px;
+    width: 22px;
+  }
+}
+
+.growth-rail-track {
+  position: relative;
+  width: 2px;
+  height: 78%;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--line) 0,
+    var(--line) 6px,
+    transparent 6px,
+    transparent 14px
+  );
+  margin-left: 10px;
+}
+
+@media (max-width: 640px) {
+  .growth-rail-track {
+    margin-left: 6px;
+  }
+}
+
+.growth-rail-fill {
+  position: absolute;
+  top: 0;
+  left: -1px;
+  width: 4px;
+  background: linear-gradient(to bottom, var(--honey), var(--sage));
+  border-radius: 4px;
+  transition: height 60ms linear;
+}
+
+.growth-rail-marker {
+  position: absolute;
+  left: -9px;
+  width: 20px;
+  height: 20px;
+  transform: translateY(-50%);
+  transition: top 60ms linear;
+}
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: 0 1px 2px rgba(57, 44, 52, 0.04);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  padding: 0.85rem 1.6rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  cursor: pointer;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: var(--sage-deep);
+  color: var(--paper);
+}
+.btn-primary:hover {
+  background: var(--sage);
+  box-shadow: 0 6px 20px rgba(79, 107, 77, 0.28);
+}
+
+.btn-honey {
+  background: var(--honey);
+  color: var(--ink);
+}
+.btn-honey:hover {
+  box-shadow: 0 6px 20px rgba(226, 161, 63, 0.35);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+}
+.btn-outline:hover {
+  border-color: var(--ink);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sage-deep);
+  background: var(--sage-soft);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 700ms cubic-bezier(0.16, 1, 0.3, 1), transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
