@@ -59,8 +59,8 @@ export const siteConfig = {
 
   // Contacts shown at the bottom
   contacts: {
-    mom: { name: "Kaushani", whatsapp: "94771234567" }, // country code, no +, no spaces
-    dad: { name: "Nalaka", whatsapp: "94777654321" },
+    mom: { name: "Kaushani", whatsapp: "94716307200" }, // country code, no +, no spaces
+    dad: { name: "Nalaka", whatsapp: "94764019678" },
   },
 
   // Simple shared passcode for the parents' live dashboard at /dashboard
