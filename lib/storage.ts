@@ -1,4 +1,4 @@
-import { Redis } from "@upstash/redis";
+import { createClient } from "@supabase/supabase-js";
 import { siteConfig } from "./config";
 
 export type RsvpStatus = "attending" | "cancelled";
@@ -15,84 +15,119 @@ export interface RsvpEntry {
   updatedAt: string;
 }
 
-const LIST_KEY = `rsvp:${siteConfig.eventSlug}:ids`;
-const ENTRY_KEY = (id: string) => `rsvp:${siteConfig.eventSlug}:entry:${id}`;
-
-// ── Redis client (used automatically when Upstash env vars are present) ──
-const hasUpstash =
-  !!process.env.UPSTASH_REDIS_REST_URL && !!process.env.UPSTASH_REDIS_REST_TOKEN;
-
-const redis = hasUpstash
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL!,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-    })
-  : null;
-
-// ── In-memory fallback (local dev only — resets on every server restart,
-//    and does NOT work across serverless invocations on Vercel) ──
-const globalAny = globalThis as unknown as { __rsvpMemStore?: Map<string, RsvpEntry> };
-if (!globalAny.__rsvpMemStore) globalAny.__rsvpMemStore = new Map();
-const memStore = globalAny.__rsvpMemStore;
-
-export function isUsingPersistentStorage() {
-  return hasUpstash;
+// ── Supabase client (server-side, uses service role key to bypass RLS) ────────
+function getClient() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set. " +
+        "Go to your Supabase project → Settings → API and copy both values " +
+        "into Vercel Environment Variables and your local .env.local file."
+    );
+  }
+  return createClient(url, key, {
+    auth: { persistSession: false },
+  });
 }
 
+// ── Table name — one table per event ─────────────────────────────────────────
+const TABLE = "rsvp_entries";
+const EVENT_SLUG = siteConfig.eventSlug;
+
+// ── Row → RsvpEntry mapper ────────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToEntry(row: any): RsvpEntry {
+  return {
+    id: row.id,
+    token: row.token,
+    householdName: row.household_name,
+    guestCount: Number(row.guest_count),
+    message: row.message ?? undefined,
+    whatsapp: row.whatsapp ?? undefined,
+    status: row.status as RsvpStatus,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function isUsingPersistentStorage() {
+  return !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+// ── CRUD operations ───────────────────────────────────────────────────────────
+
 export async function addRsvp(entry: RsvpEntry): Promise<void> {
-  if (redis) {
-    await redis.set(ENTRY_KEY(entry.id), entry);
-    await redis.sadd(LIST_KEY, entry.id);
-  } else {
-    memStore.set(entry.id, entry);
-  }
+  const supabase = getClient();
+  const { error } = await supabase.from(TABLE).insert({
+    id: entry.id,
+    token: entry.token,
+    event_slug: EVENT_SLUG,
+    household_name: entry.householdName,
+    guest_count: entry.guestCount,
+    message: entry.message ?? null,
+    whatsapp: entry.whatsapp ?? null,
+    status: entry.status,
+    created_at: entry.createdAt,
+    updated_at: entry.updatedAt,
+  });
+  if (error) throw new Error(`Supabase addRsvp error: ${error.message}`);
 }
 
 export async function updateRsvp(entry: RsvpEntry): Promise<void> {
-  if (redis) {
-    await redis.set(ENTRY_KEY(entry.id), entry);
-  } else {
-    memStore.set(entry.id, entry);
-  }
+  const supabase = getClient();
+  const { error } = await supabase
+    .from(TABLE)
+    .update({
+      household_name: entry.householdName,
+      guest_count: entry.guestCount,
+      message: entry.message ?? null,
+      whatsapp: entry.whatsapp ?? null,
+      status: entry.status,
+      updated_at: entry.updatedAt,
+    })
+    .eq("id", entry.id);
+  if (error) throw new Error(`Supabase updateRsvp error: ${error.message}`);
 }
 
 export async function getRsvp(id: string): Promise<RsvpEntry | null> {
-  if (redis) {
-    const val = await redis.get<RsvpEntry>(ENTRY_KEY(id));
-    return val ?? null;
-  }
-  return memStore.get(id) ?? null;
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("id", id)
+    .eq("event_slug", EVENT_SLUG)
+    .single();
+  if (error) return null;
+  return data ? rowToEntry(data) : null;
 }
 
 export async function listRsvps(): Promise<RsvpEntry[]> {
-  if (redis) {
-    const ids = await redis.smembers(LIST_KEY);
-    if (!ids.length) return [];
-    const entries = await Promise.all(ids.map((id) => redis.get<RsvpEntry>(ENTRY_KEY(id))));
-    return entries
-      .filter((e): e is RsvpEntry => !!e)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  }
-  return Array.from(memStore.values()).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("event_slug", EVENT_SLUG)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(`Supabase listRsvps error: ${error.message}`);
+  return (data ?? []).map(rowToEntry);
 }
 
 export async function deleteRsvp(id: string): Promise<void> {
-  if (redis) {
-    await redis.del(ENTRY_KEY(id));
-    await redis.srem(LIST_KEY, id);
-  } else {
-    memStore.delete(id);
-  }
+  const supabase = getClient();
+  const { error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq("id", id)
+    .eq("event_slug", EVENT_SLUG);
+  if (error) throw new Error(`Supabase deleteRsvp error: ${error.message}`);
 }
 
 export async function clearAllRsvps(): Promise<void> {
-  if (redis) {
-    const ids = await redis.smembers(LIST_KEY);
-    if (ids.length) {
-      await Promise.all(ids.map((id) => redis.del(ENTRY_KEY(id))));
-    }
-    await redis.del(LIST_KEY);
-  } else {
-    memStore.clear();
-  }
+  const supabase = getClient();
+  const { error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq("event_slug", EVENT_SLUG);
+  if (error) throw new Error(`Supabase clearAllRsvps error: ${error.message}`);
 }
