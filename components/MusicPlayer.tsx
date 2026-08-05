@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 
 const SONG_PATH =
   "/music/Happy 1st Birthday Little Girl!   Birthday Song for Baby Girl  1 Year Old.mp3";
 
 export default function MusicPlayer() {
+  const pathname = usePathname();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
 
-  // Initialize Audio
+  // Only render the music player on the primary invitation page
+  const isInvitationPage = pathname === "/";
+
+  // Initialize Audio Object
   useEffect(() => {
     const audio = new Audio(SONG_PATH);
     audio.loop = true;
@@ -23,14 +28,22 @@ export default function MusicPlayer() {
     };
   }, []);
 
-  // Handler to start music and open invitation simultaneously
+  // Stop audio immediately whenever the user navigates away from the main invitation page
+  useEffect(() => {
+    if (!isInvitationPage && audioRef.current) {
+      audioRef.current.pause();
+      setPlaying(false);
+    }
+  }, [pathname, isInvitationPage]);
+
+  // Handler to start music and open invitation
   const handleOpenInvitation = useCallback(() => {
     setHasOpened(true);
     if (audioRef.current) {
       audioRef.current
         .play()
         .then(() => setPlaying(true))
-        .catch((err) => console.log("Playback error:", err));
+        .catch((err) => console.log("Playback blocked:", err));
     }
   }, []);
 
@@ -49,6 +62,9 @@ export default function MusicPlayer() {
         .catch((err) => console.log("Playback error:", err));
     }
   };
+
+  // If the user is on /dashboard or any other route, do not display the music components
+  if (!isInvitationPage) return null;
 
   return (
     <>
@@ -83,7 +99,7 @@ export default function MusicPlayer() {
           position: fixed;
           inset: 0;
           z-index: 100;
-          background: rgba(0, 0, 0, 0.6);
+          background: rgba(0, 0, 0, 0.65);
           backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
@@ -97,7 +113,7 @@ export default function MusicPlayer() {
           font-family: inherit;
           font-size: 1.1rem;
           font-weight: 700;
-          padding: 1rem 2rem;
+          padding: 1rem 2.2rem;
           border: none;
           border-radius: 50px;
           cursor: pointer;
@@ -109,7 +125,7 @@ export default function MusicPlayer() {
         }
       `}</style>
 
-      {/* 1. Initial Screen Overlay to guarantee autoplay permission */}
+      {/* 1. First-Load Overlay to ensure autoplay compliance */}
       {!hasOpened && (
         <div className="overlay-backdrop">
           <button className="open-card-btn" onClick={handleOpenInvitation}>
@@ -118,7 +134,7 @@ export default function MusicPlayer() {
         </div>
       )}
 
-      {/* 2. Bottom Floating Toggle Button */}
+      {/* 2. Floating Toggle Button (Visible only on the invitation page) */}
       <button
         id="music-player-btn"
         onClick={toggleMusic}
@@ -136,9 +152,9 @@ export default function MusicPlayer() {
           borderRadius: "999px",
           border: "1.5px solid rgba(226,161,63,0.4)",
           background: playing
-            ? "linear-gradient(135deg, var(--honey), #d4882a)"
-            : "var(--paper)",
-          color: playing ? "var(--ink)" : "var(--ink-soft)",
+            ? "linear-gradient(135deg, var(--honey, #f6d365), #d4882a)"
+            : "var(--paper, #ffffff)",
+          color: playing ? "var(--ink, #2c2c2c)" : "var(--ink-soft, #666666)",
           fontFamily: "'Figtree', sans-serif",
           fontSize: "0.82rem",
           fontWeight: 600,
@@ -147,12 +163,11 @@ export default function MusicPlayer() {
         }}
         className={playing ? "music-btn-playing" : ""}
       >
-        {/* Music Icon */}
         <svg
           width="15"
           height="15"
           viewBox="0 0 24 24"
-          fill={playing ? "var(--ink)" : "var(--ink-soft)"}
+          fill={playing ? "var(--ink, #2c2c2c)" : "var(--ink-soft, #666666)"}
           style={{ flexShrink: 0 }}
         >
           <path d="M9 18V5l12-2v13" />
@@ -160,7 +175,6 @@ export default function MusicPlayer() {
           <circle cx="18" cy="16" r="3" />
         </svg>
 
-        {/* Animated Bar visualizer when playing / Text when paused */}
         {playing ? (
           <span style={{ display: "flex", alignItems: "flex-end", gap: "2px", height: "16px" }}>
             <span className="music-bar" />
