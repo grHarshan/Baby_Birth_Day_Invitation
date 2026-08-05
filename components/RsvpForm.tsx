@@ -18,6 +18,7 @@ export default function RsvpForm() {
   const [householdName, setHouseholdName] = useState("");
   const [guestCount, setGuestCount] = useState(2);
   const [message, setMessage] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +41,7 @@ export default function RsvpForm() {
       const res = await fetch("/api/rsvp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ householdName, guestCount, message }),
+        body: JSON.stringify({ householdName, guestCount, message, whatsapp }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
@@ -89,6 +90,7 @@ export default function RsvpForm() {
     setHouseholdName("");
     setGuestCount(2);
     setMessage("");
+    setWhatsapp("");
   }
 
   // ── Already responded: show status card instead of the form ──
@@ -182,7 +184,30 @@ export default function RsvpForm() {
         />
       </div>
 
+      <div>
+        <label htmlFor="whatsapp" className="block text-sm font-semibold mb-1.5">
+          Your WhatsApp number{" "}
+          <span className="text-[var(--ink-soft)] font-normal">(optional — for reminders)</span>
+        </label>
+        <div className="relative">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--ink-soft)] text-sm select-none">+</span>
+          <input
+            id="whatsapp"
+            type="tel"
+            maxLength={16}
+            placeholder="94712345678"
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value.replace(/[^\d+\s\-()]/g, ""))}
+            className="w-full rounded-xl border border-[var(--line)] bg-[var(--paper)] pl-8 pr-4 py-3 outline-none focus:border-[var(--sage)]"
+          />
+        </div>
+        <p className="text-xs text-[var(--ink-soft)] mt-1.5">
+          Include country code, no spaces (e.g. 94712345678 for Sri Lanka 🇱🇰)
+        </p>
+      </div>
+
       {error && <p className="text-[var(--blush-deep)] text-sm">{error}</p>}
+
 
       <button type="submit" disabled={loading} className="btn btn-primary w-full">
         {loading ? "Sending…" : "Send our RSVP"}

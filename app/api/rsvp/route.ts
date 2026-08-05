@@ -8,6 +8,10 @@ export async function POST(req: NextRequest) {
   const householdName = typeof body?.householdName === "string" ? body.householdName.trim() : "";
   const guestCount = Number(body?.guestCount);
   const message = typeof body?.message === "string" ? body.message.trim().slice(0, 300) : "";
+  // Strip everything except digits from the supplied WhatsApp number
+  const whatsapp = typeof body?.whatsapp === "string"
+    ? body.whatsapp.replace(/\D/g, "").slice(0, 15)
+    : undefined;
 
   if (!householdName || householdName.length > 80) {
     return NextResponse.json({ error: "Please enter a valid name." }, { status: 400 });
@@ -23,6 +27,7 @@ export async function POST(req: NextRequest) {
     householdName,
     guestCount,
     message: message || undefined,
+    whatsapp: whatsapp || undefined,
     status: "attending",
     createdAt: now,
     updatedAt: now,

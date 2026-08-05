@@ -9,6 +9,7 @@ export interface RsvpEntry {
   householdName: string;
   guestCount: number;
   message?: string;
+  whatsapp?: string; // guest WhatsApp number (digits only, with country code)
   status: RsvpStatus;
   createdAt: string;
   updatedAt: string;
