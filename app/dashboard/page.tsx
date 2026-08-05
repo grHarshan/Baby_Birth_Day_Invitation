@@ -23,9 +23,9 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const pwRef = useRef("");
-
   const [clearing, setClearing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const pwRef = useRef("");
 
   const fetchEntries = useCallback(async (pw: string) => {
     try {
@@ -46,8 +46,38 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // Delete a single RSVP entry by id
+  const handleDeleteOne = useCallback(async (entry: Entry) => {
+    const confirmed = confirm(
+      `Delete "${entry.householdName}" (${entry.guestCount} guest${entry.guestCount > 1 ? "s" : ""})?\n\nThis cannot be undone.`
+    );
+    if (!confirmed) return;
+    setDeletingId(entry.id);
+    try {
+      const res = await fetch(`/api/rsvp?id=${entry.id}`, {
+        method: "DELETE",
+        headers: { "x-dashboard-password": pwRef.current },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Failed to delete entry.");
+        return;
+      }
+      setEntries((prev) => (prev ? prev.filter((e) => e.id !== entry.id) : prev));
+      setLastUpdated(new Date());
+    } catch {
+      alert("Network error — couldn't delete entry.");
+    } finally {
+      setDeletingId(null);
+    }
+  }, []);
+
+  // Clear ALL entries
   const handleClearAll = useCallback(async () => {
-    if (!confirm("⚠️ This will permanently delete ALL RSVPs. Are you sure?")) return;
+    const confirmed = confirm(
+      "⚠️ Clear ALL RSVPs?\n\nThis will permanently delete every entry and cannot be undone."
+    );
+    if (!confirmed) return;
     setClearing(true);
     try {
       const res = await fetch("/api/rsvp", {
@@ -67,8 +97,6 @@ export default function DashboardPage() {
       setClearing(false);
     }
   }, []);
-
-
 
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY);
@@ -133,6 +161,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-[100dvh] px-6 py-12 max-w-3xl mx-auto">
+      {/* Header */}
       <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
         <div>
           <h1 className="font-display text-3xl">Guest list</h1>
@@ -169,6 +198,7 @@ export default function DashboardPage() {
         <p className="text-[var(--ink-soft)]">No RSVPs yet — check back soon.</p>
       ) : (
         <div className="space-y-6">
+          {/* Attending */}
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--sage-deep)] mb-3">
               Attending ({attending.length})
@@ -179,18 +209,40 @@ export default function DashboardPage() {
               )}
               {attending.map((e) => (
                 <div key={e.id} className="p-4 flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-medium">{e.householdName}</p>
-                    {e.message && <p className="text-sm text-[var(--ink-soft)] mt-0.5">&ldquo;{e.message}&rdquo;</p>}
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{e.householdName}</p>
+                    {e.message && (
+                      <p className="text-sm text-[var(--ink-soft)] mt-0.5 truncate">&ldquo;{e.message}&rdquo;</p>
+                    )}
                   </div>
-                  <span className="font-mono text-sm shrink-0 bg-[var(--sage-soft)] text-[var(--sage-deep)] rounded-full px-3 py-1">
-                    {e.guestCount} guest{e.guestCount > 1 ? "s" : ""}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono text-sm bg-[var(--sage-soft)] text-[var(--sage-deep)] rounded-full px-3 py-1">
+                      {e.guestCount} guest{e.guestCount > 1 ? "s" : ""}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteOne(e)}
+                      disabled={deletingId === e.id || clearing}
+                      title={`Delete ${e.householdName}`}
+                      className="w-8 h-8 flex items-center justify-center rounded-full text-[var(--ink-soft)] hover:bg-[var(--blush-soft)] hover:text-[var(--blush-deep)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {deletingId === e.id ? (
+                        <span className="text-xs font-mono">…</span>
+                      ) : (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14H6L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                          <path d="M9 6V4h6v2" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
+          {/* Can't make it */}
           {cancelled.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ink-soft)] mb-3">
@@ -200,7 +252,26 @@ export default function DashboardPage() {
                 {cancelled.map((e) => (
                   <div key={e.id} className="p-4 flex items-center justify-between gap-4">
                     <p className="font-medium">{e.householdName}</p>
-                    <span className="text-xs font-mono text-[var(--ink-soft)]">cancelled</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-mono text-[var(--ink-soft)]">cancelled</span>
+                      <button
+                        onClick={() => handleDeleteOne(e)}
+                        disabled={deletingId === e.id || clearing}
+                        title={`Delete ${e.householdName}`}
+                        className="w-8 h-8 flex items-center justify-center rounded-full text-[var(--ink-soft)] hover:bg-[var(--blush-soft)] hover:text-[var(--blush-deep)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {deletingId === e.id ? (
+                          <span className="text-xs font-mono">…</span>
+                        ) : (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14H6L5 6" />
+                            <path d="M10 11v6M14 11v6" />
+                            <path d="M9 6V4h6v2" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

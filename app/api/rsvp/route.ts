@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { addRsvp, listRsvps, clearAllRsvps, RsvpEntry } from "@/lib/storage";
+import { addRsvp, listRsvps, deleteRsvp, clearAllRsvps, RsvpEntry } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -48,7 +48,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ entries: safe });
 }
 
-// Guarded delete-all endpoint — clears every RSVP entry from storage.
+// Guarded delete endpoint.
+// DELETE /api/rsvp?id=<id>  → delete a single entry
+// DELETE /api/rsvp           → clear ALL entries
 export async function DELETE(req: NextRequest) {
   const password = req.headers.get("x-dashboard-password") ?? "";
   const expected = process.env.DASHBOARD_PASSWORD ?? "";
@@ -57,6 +59,12 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const id = req.nextUrl.searchParams.get("id");
+  if (id) {
+    await deleteRsvp(id);
+    return NextResponse.json({ ok: true, deleted: id });
+  }
+
   await clearAllRsvps();
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, deleted: "all" });
 }
