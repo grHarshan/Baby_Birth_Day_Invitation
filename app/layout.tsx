@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { siteConfig } from "@/lib/config";
+import MusicPlayer from "@/components/MusicPlayer";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sihagi-ayenya.vercel.app";
 
@@ -47,7 +48,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <MusicPlayer />
+      </body>
     </html>
   );
 }
